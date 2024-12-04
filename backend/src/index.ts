@@ -3,14 +3,21 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from 'dotenv';
+import { env } from './config/env';
+import routes from './routes';
+import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { PrismaClient } from '@prisma/client';
 
 // Load environment variables
 config();
 
+// Initialize Express app
 const app = express();
-const port = process.env.PORT || 3000;
 
-// Middleware
+// Initialize Prisma
+export const prisma = new PrismaClient();
+
+// Security middleware
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -20,30 +27,36 @@ app.use(express.json());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.RATE_LIMIT_MAX_REQUESTS,
 });
 app.use(limiter);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+// Routes
+app.use('/api', routes);
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Start server
+const port = env.PORT;
+const server = app.listen(port, () => {
+  console.log(`Server running in ${env.NODE_ENV} mode on port ${port}`);
 });
 
-// API routes will be added here
-// TODO: Add routes for:
-// - Authentication
-// - Image processing
-// - Style management
-// - User preferences
-// - Image metadata
-
-// Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err: Error) => {
+  console.error('Unhandled Promise Rejection:', err);
+  // Close server & exit process
+  server.close(() => process.exit(1));
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-}); 
+// Handle uncaught exceptions
+process.on('uncaughtException', (err: Error) => {
+  console.error('Uncaught Exception:', err);
+  // Close server & exit process
+  server.close(() => process.exit(1));
+});
+
+export default app; 
