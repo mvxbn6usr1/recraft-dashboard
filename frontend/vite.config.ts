@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
   server: {
@@ -18,5 +18,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+  },
+  define: {
+    'import.meta.env': JSON.stringify(process.env),
   },
 }); 
